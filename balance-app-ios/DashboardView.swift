@@ -31,6 +31,13 @@ struct DashboardView: View {
 
 	@State private var selectedPath = "dashboard"
 	@State private var showMenu = false
+	@State private var navigateToHistory = false
+	@State private var navigateToWallets = false
+	@State private var navigateToCategories = false
+	@State private var navigateToBudgets = false
+	@State private var navigateToRecord = false
+	@State private var navigateToProfile = false
+	@State private var navigateToSettings = false
 
 	private let wallets: [WalletItem] = [
 		.init(name: "Main Wallet", balance: 29850),
@@ -98,6 +105,44 @@ struct DashboardView: View {
 			navigationSheet
 				.presentationDetents([.medium, .large])
 		}
+		.background {
+			Group {
+				NavigationLink("", isActive: $navigateToHistory) {
+					TransactionLedgerView()
+				}
+				.hidden()
+
+				NavigationLink("", isActive: $navigateToWallets) {
+					WalletView()
+				}
+				.hidden()
+
+				NavigationLink("", isActive: $navigateToCategories) {
+					CategoriesView()
+				}
+				.hidden()
+
+				NavigationLink("", isActive: $navigateToBudgets) {
+					BudgetView()
+				}
+				.hidden()
+
+				NavigationLink("", isActive: $navigateToRecord) {
+					NewEntryView()
+				}
+				.hidden()
+
+				NavigationLink("", isActive: $navigateToProfile) {
+					AccountProfile()
+				}
+				.hidden()
+
+				NavigationLink("", isActive: $navigateToSettings) {
+					SettingView()
+				}
+				.hidden()
+			}
+		}
 		.navigationBarBackButtonHidden(true)
 	}
 
@@ -125,7 +170,7 @@ struct DashboardView: View {
 				Spacer()
 
 				Button {
-					selectedPath = "record"
+					navigate(to: "record")
 				} label: {
 					Text("Quick Entry".uppercased())
 						.font(.system(size: 10, weight: .bold))
@@ -190,7 +235,7 @@ struct DashboardView: View {
 					.foregroundColor(.gray)
 				Spacer()
 				Button("View All Ledger") {
-					selectedPath = "history"
+					navigate(to: "history")
 				}
 				.font(.system(size: 10, weight: .bold))
 				.foregroundColor(.indigo)
@@ -249,7 +294,7 @@ struct DashboardView: View {
 			}
 
 			Button {
-				selectedPath = "wallets"
+				navigate(to: "wallets")
 			} label: {
 				Text("Manage Assets".uppercased())
 					.font(.system(size: 10, weight: .bold))
@@ -349,8 +394,7 @@ struct DashboardView: View {
 
 	private func navRow(_ title: String, path: String) -> some View {
 		Button {
-			selectedPath = path
-			showMenu = false
+			navigate(to: path)
 		} label: {
 			HStack {
 				Text(title)
@@ -362,6 +406,30 @@ struct DashboardView: View {
 			}
 		}
 		.tint(.primary)
+	}
+
+	private func navigate(to path: String) {
+		selectedPath = path
+		showMenu = false
+
+		switch path {
+		case "history":
+			navigateToHistory = true
+		case "wallets":
+			navigateToWallets = true
+		case "categories":
+			navigateToCategories = true
+		case "budgets":
+			navigateToBudgets = true
+		case "record":
+			navigateToRecord = true
+		case "profile":
+			navigateToProfile = true
+		case "settings":
+			navigateToSettings = true
+		default:
+			break
+		}
 	}
 
 	private var pageTitle: String {
