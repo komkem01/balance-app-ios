@@ -100,9 +100,22 @@ struct DashboardView: View {
 						.foregroundStyle(.black.opacity(0.75))
 				}
 			}
+
+			ToolbarItem(placement: .topBarTrailing) {
+				Button {
+					navigate(to: .dashboard)
+				} label: {
+					Label("Dashboard", systemImage: "house")
+						.font(.system(size: 11, weight: .bold))
+				}
+				.disabled(true)
+				.opacity(0.5)
+			}
 		}
 		.sheet(isPresented: $showMenu) {
-			navigationSheet
+			AppNavigationMenuSheet(currentRoute: .dashboard) { route in
+				navigate(to: route)
+			}
 				.presentationDetents([.medium, .large])
 		}
 		.background {
@@ -170,7 +183,7 @@ struct DashboardView: View {
 				Spacer()
 
 				Button {
-					navigate(to: "record")
+					navigate(to: .record)
 				} label: {
 					Text("Quick Entry".uppercased())
 						.font(.system(size: 10, weight: .bold))
@@ -235,7 +248,7 @@ struct DashboardView: View {
 					.foregroundColor(.gray)
 				Spacer()
 				Button("View All Ledger") {
-					navigate(to: "history")
+					navigate(to: .history)
 				}
 				.font(.system(size: 10, weight: .bold))
 				.foregroundColor(.indigo)
@@ -294,7 +307,7 @@ struct DashboardView: View {
 			}
 
 			Button {
-				navigate(to: "wallets")
+				navigate(to: .wallets)
 			} label: {
 				Text("Manage Assets".uppercased())
 					.font(.system(size: 10, weight: .bold))
@@ -354,33 +367,6 @@ struct DashboardView: View {
 		)
 	}
 
-	private var navigationSheet: some View {
-		NavigationStack {
-			List {
-				Section("Overview") {
-					navRow("Dashboard", path: "dashboard")
-					navRow("Transaction Ledger", path: "history")
-				}
-
-				Section("Management") {
-					navRow("Wallets", path: "wallets")
-					navRow("Categories", path: "categories")
-					navRow("Budgets", path: "budgets")
-				}
-
-				Section("Actions") {
-					navRow("New Transaction", path: "record")
-				}
-
-				Section("System") {
-					navRow("Account Profile", path: "profile")
-					navRow("Settings", path: "settings")
-				}
-			}
-			.navigationTitle("Menu")
-		}
-	}
-
 	private func legendDot(color: Color, title: String) -> some View {
 		HStack(spacing: 5) {
 			Circle()
@@ -392,41 +378,27 @@ struct DashboardView: View {
 		}
 	}
 
-	private func navRow(_ title: String, path: String) -> some View {
-		Button {
-			navigate(to: path)
-		} label: {
-			HStack {
-				Text(title)
-				Spacer()
-				if selectedPath == path {
-					Image(systemName: "checkmark")
-						.foregroundStyle(.indigo)
-				}
-			}
-		}
-		.tint(.primary)
-	}
-
-	private func navigate(to path: String) {
-		selectedPath = path
+	private func navigate(to route: AppRoute) {
+		selectedPath = route.rawValue
 		showMenu = false
 
-		switch path {
-		case "history":
+		switch route {
+		case .history:
 			navigateToHistory = true
-		case "wallets":
+		case .wallets:
 			navigateToWallets = true
-		case "categories":
+		case .categories:
 			navigateToCategories = true
-		case "budgets":
+		case .budgets:
 			navigateToBudgets = true
-		case "record":
+		case .record:
 			navigateToRecord = true
-		case "profile":
+		case .profile:
 			navigateToProfile = true
-		case "settings":
+		case .settings:
 			navigateToSettings = true
+		case .dashboard:
+			break
 		default:
 			break
 		}

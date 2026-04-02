@@ -20,6 +20,14 @@ struct SettingView: View {
 	@State private var showSaveConfirm = false
 	@State private var showToast = false
 	@State private var toastMessage = ""
+	@State private var showMenu = false
+	@State private var navigateToDashboard = false
+	@State private var navigateToHistory = false
+	@State private var navigateToWallets = false
+	@State private var navigateToCategories = false
+	@State private var navigateToBudgets = false
+	@State private var navigateToRecord = false
+	@State private var navigateToProfile = false
 	@State private var notifications: [NotificationSetting] = [
 		.init(id: "budget", title: "Budget Alerts", subtitle: "Notify when spending reaches limit", isOn: true),
 		.init(id: "security", title: "Security Events", subtitle: "Sign-in and account security updates", isOn: true),
@@ -93,6 +101,41 @@ struct SettingView: View {
 		}
 		.navigationTitle("Settings")
 		.navigationBarTitleDisplayMode(.inline)
+		.toolbar {
+			ToolbarItem(placement: .topBarLeading) {
+				Button {
+					showMenu = true
+				} label: {
+					Image(systemName: "line.3.horizontal")
+				}
+			}
+
+			ToolbarItem(placement: .topBarTrailing) {
+				Button {
+					navigate(to: .dashboard)
+				} label: {
+					Label("Dashboard", systemImage: "house")
+						.font(.system(size: 11, weight: .bold))
+				}
+			}
+		}
+		.sheet(isPresented: $showMenu) {
+			AppNavigationMenuSheet(currentRoute: .settings) { route in
+				navigate(to: route)
+			}
+			.presentationDetents([.medium, .large])
+		}
+		.background {
+			Group {
+				NavigationLink("", isActive: $navigateToDashboard) { DashboardView() }.hidden()
+				NavigationLink("", isActive: $navigateToHistory) { TransactionLedgerView() }.hidden()
+				NavigationLink("", isActive: $navigateToWallets) { WalletView() }.hidden()
+				NavigationLink("", isActive: $navigateToCategories) { CategoriesView() }.hidden()
+				NavigationLink("", isActive: $navigateToBudgets) { BudgetView() }.hidden()
+				NavigationLink("", isActive: $navigateToRecord) { NewEntryView() }.hidden()
+				NavigationLink("", isActive: $navigateToProfile) { AccountProfile() }.hidden()
+			}
+		}
 		.alert("Confirm Update", isPresented: $showSaveConfirm) {
 			Button("Cancel", role: .cancel) {}
 			Button("Save") {
@@ -313,6 +356,29 @@ struct SettingView: View {
 			withAnimation(.easeInOut) {
 				showToast = false
 			}
+		}
+	}
+
+	private func navigate(to route: AppRoute) {
+		showMenu = false
+
+		switch route {
+		case .dashboard:
+			navigateToDashboard = true
+		case .history:
+			navigateToHistory = true
+		case .wallets:
+			navigateToWallets = true
+		case .categories:
+			navigateToCategories = true
+		case .budgets:
+			navigateToBudgets = true
+		case .record:
+			navigateToRecord = true
+		case .profile:
+			navigateToProfile = true
+		case .settings:
+			break
 		}
 	}
 }

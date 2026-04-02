@@ -51,6 +51,14 @@ struct CategoriesView: View {
 
 	@State private var showToast = false
 	@State private var toastMessage = ""
+	@State private var showMenu = false
+	@State private var navigateToDashboard = false
+	@State private var navigateToHistory = false
+	@State private var navigateToWallets = false
+	@State private var navigateToBudgets = false
+	@State private var navigateToRecord = false
+	@State private var navigateToProfile = false
+	@State private var navigateToSettings = false
 
 	private let colorChoices = [
 		"#0F172A", "#2563EB", "#7C3AED", "#EC4899", "#DC2626", "#EA580C", "#16A34A", "#0891B2"
@@ -130,6 +138,41 @@ struct CategoriesView: View {
 		}
 		.navigationTitle("Categories")
 		.navigationBarTitleDisplayMode(.inline)
+		.toolbar {
+			ToolbarItem(placement: .topBarLeading) {
+				Button {
+					showMenu = true
+				} label: {
+					Image(systemName: "line.3.horizontal")
+				}
+			}
+
+			ToolbarItem(placement: .topBarTrailing) {
+				Button {
+					navigate(to: .dashboard)
+				} label: {
+					Label("Dashboard", systemImage: "house")
+						.font(.system(size: 11, weight: .bold))
+				}
+			}
+		}
+		.sheet(isPresented: $showMenu) {
+			AppNavigationMenuSheet(currentRoute: .categories) { route in
+				navigate(to: route)
+			}
+			.presentationDetents([.medium, .large])
+		}
+		.background {
+			Group {
+				NavigationLink("", isActive: $navigateToDashboard) { DashboardView() }.hidden()
+				NavigationLink("", isActive: $navigateToHistory) { TransactionLedgerView() }.hidden()
+				NavigationLink("", isActive: $navigateToWallets) { WalletView() }.hidden()
+				NavigationLink("", isActive: $navigateToBudgets) { BudgetView() }.hidden()
+				NavigationLink("", isActive: $navigateToRecord) { NewEntryView() }.hidden()
+				NavigationLink("", isActive: $navigateToProfile) { AccountProfile() }.hidden()
+				NavigationLink("", isActive: $navigateToSettings) { SettingView() }.hidden()
+			}
+		}
 		.alert(categoryConfirmTitle, isPresented: $categoryConfirmOpen) {
 			Button("Cancel", role: .cancel) {
 				pendingDeleteID = nil
@@ -607,6 +650,29 @@ struct CategoriesView: View {
 		case "#16A34A": return .green
 		case "#0891B2": return .cyan
 		default: return Color(red: 15 / 255, green: 23 / 255, blue: 42 / 255)
+		}
+	}
+
+	private func navigate(to route: AppRoute) {
+		showMenu = false
+
+		switch route {
+		case .dashboard:
+			navigateToDashboard = true
+		case .history:
+			navigateToHistory = true
+		case .wallets:
+			navigateToWallets = true
+		case .budgets:
+			navigateToBudgets = true
+		case .record:
+			navigateToRecord = true
+		case .profile:
+			navigateToProfile = true
+		case .settings:
+			navigateToSettings = true
+		case .categories:
+			break
 		}
 	}
 }

@@ -53,6 +53,14 @@ struct WalletView: View {
 
 	@State private var showToast = false
 	@State private var toastMessage = ""
+	@State private var showMenu = false
+	@State private var navigateToDashboard = false
+	@State private var navigateToHistory = false
+	@State private var navigateToCategories = false
+	@State private var navigateToBudgets = false
+	@State private var navigateToRecord = false
+	@State private var navigateToProfile = false
+	@State private var navigateToSettings = false
 
 	private let currencyOptions = ["THB", "USD"]
 	private let walletColorChoices = [
@@ -117,6 +125,62 @@ struct WalletView: View {
 		}
 		.navigationTitle("Wallets")
 		.navigationBarTitleDisplayMode(.inline)
+		.toolbar {
+			ToolbarItem(placement: .topBarLeading) {
+				Button {
+					showMenu = true
+				} label: {
+					Image(systemName: "line.3.horizontal")
+				}
+			}
+
+			ToolbarItem(placement: .topBarTrailing) {
+				Button {
+					navigate(to: .dashboard)
+				} label: {
+					Label("Dashboard", systemImage: "house")
+						.font(.system(size: 11, weight: .bold))
+				}
+			}
+		}
+		.sheet(isPresented: $showMenu) {
+			AppNavigationMenuSheet(currentRoute: .wallets) { route in
+				navigate(to: route)
+			}
+			.presentationDetents([.medium, .large])
+		}
+		.background {
+			Group {
+				NavigationLink("", isActive: $navigateToDashboard) {
+					DashboardView()
+				}
+				.hidden()
+				NavigationLink("", isActive: $navigateToHistory) {
+					TransactionLedgerView()
+				}
+				.hidden()
+				NavigationLink("", isActive: $navigateToCategories) {
+					CategoriesView()
+				}
+				.hidden()
+				NavigationLink("", isActive: $navigateToBudgets) {
+					BudgetView()
+				}
+				.hidden()
+				NavigationLink("", isActive: $navigateToRecord) {
+					NewEntryView()
+				}
+				.hidden()
+				NavigationLink("", isActive: $navigateToProfile) {
+					AccountProfile()
+				}
+				.hidden()
+				NavigationLink("", isActive: $navigateToSettings) {
+					SettingView()
+				}
+				.hidden()
+			}
+		}
 		.alert(walletConfirmTitle, isPresented: $walletConfirmOpen) {
 			Button("Cancel", role: .cancel) {
 				pendingDeleteWalletID = nil
@@ -616,6 +680,29 @@ struct WalletView: View {
 		if color == .green { return "#16A34A" }
 		if color == .cyan { return "#0891B2" }
 		return "#0F172A"
+	}
+
+	private func navigate(to route: AppRoute) {
+		showMenu = false
+
+		switch route {
+		case .dashboard:
+			navigateToDashboard = true
+		case .history:
+			navigateToHistory = true
+		case .categories:
+			navigateToCategories = true
+		case .budgets:
+			navigateToBudgets = true
+		case .record:
+			navigateToRecord = true
+		case .profile:
+			navigateToProfile = true
+		case .settings:
+			navigateToSettings = true
+		case .wallets:
+			break
+		}
 	}
 }
 

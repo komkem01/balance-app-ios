@@ -73,6 +73,14 @@ struct TransactionLedgerView: View {
 
 	@State private var showToast = false
 	@State private var toastMessage = ""
+	@State private var showMenu = false
+	@State private var navigateToDashboard = false
+	@State private var navigateToWallets = false
+	@State private var navigateToCategories = false
+	@State private var navigateToBudgets = false
+	@State private var navigateToRecord = false
+	@State private var navigateToProfile = false
+	@State private var navigateToSettings = false
 
 	private let wallets: [WalletItem] = [
 		.init(id: "main", name: "Main Savings"),
@@ -183,6 +191,41 @@ struct TransactionLedgerView: View {
 		}
 		.navigationTitle("Transaction Ledger")
 		.navigationBarTitleDisplayMode(.inline)
+		.toolbar {
+			ToolbarItem(placement: .topBarLeading) {
+				Button {
+					showMenu = true
+				} label: {
+					Image(systemName: "line.3.horizontal")
+				}
+			}
+
+			ToolbarItem(placement: .topBarTrailing) {
+				Button {
+					navigate(to: .dashboard)
+				} label: {
+					Label("Dashboard", systemImage: "house")
+						.font(.system(size: 11, weight: .bold))
+				}
+			}
+		}
+		.sheet(isPresented: $showMenu) {
+			AppNavigationMenuSheet(currentRoute: .history) { route in
+				navigate(to: route)
+			}
+			.presentationDetents([.medium, .large])
+		}
+		.background {
+			Group {
+				NavigationLink("", isActive: $navigateToDashboard) { DashboardView() }.hidden()
+				NavigationLink("", isActive: $navigateToWallets) { WalletView() }.hidden()
+				NavigationLink("", isActive: $navigateToCategories) { CategoriesView() }.hidden()
+				NavigationLink("", isActive: $navigateToBudgets) { BudgetView() }.hidden()
+				NavigationLink("", isActive: $navigateToRecord) { NewEntryView() }.hidden()
+				NavigationLink("", isActive: $navigateToProfile) { AccountProfile() }.hidden()
+				NavigationLink("", isActive: $navigateToSettings) { SettingView() }.hidden()
+			}
+		}
 		.sheet(isPresented: $editModalOpen) {
 			editTransactionSheet
 		}
@@ -613,6 +656,29 @@ struct TransactionLedgerView: View {
 			withAnimation(.easeInOut) {
 				showToast = false
 			}
+		}
+	}
+
+	private func navigate(to route: AppRoute) {
+		showMenu = false
+
+		switch route {
+		case .dashboard:
+			navigateToDashboard = true
+		case .wallets:
+			navigateToWallets = true
+		case .categories:
+			navigateToCategories = true
+		case .budgets:
+			navigateToBudgets = true
+		case .record:
+			navigateToRecord = true
+		case .profile:
+			navigateToProfile = true
+		case .settings:
+			navigateToSettings = true
+		case .history:
+			break
 		}
 	}
 }
