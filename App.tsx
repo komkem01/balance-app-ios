@@ -1,8 +1,10 @@
 import { Manrope_300Light, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, useFonts } from "@expo-google-fonts/manrope";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 
+import { authApi, type GenderItem, type PrefixItem } from "./src/api/auth";
+import { ApiError } from "./src/api/client";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
@@ -27,27 +29,288 @@ export default function App() {
   const [gender, setGender] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [genders, setGenders] = useState<GenderItem[]>([]);
+  const [prefixes, setPrefixes] = useState<PrefixItem[]>([]);
+  const [loginMessage, setLoginMessage] = useState("");
+  const [registerMessage, setRegisterMessage] = useState("");
+  const [bootLoading, setBootLoading] = useState(true);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState("");
+  const [dashboardWallets, setDashboardWallets] = useState<Array<{ id: string; name: string; amount: number }>>([]);
+  const [dashboardRecentActivity, setDashboardRecentActivity] = useState<
+    Array<{ id: string; title: string; wallet: string; amount: number; date: string }>
+  >([]);
+  const [totalNetWorth, setTotalNetWorth] = useState(0);
+  const [sessionExpiredModalVisible, setSessionExpiredModalVisible] = useState(false);
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState("");
+  const dashboardRequestInFlightRef = useRef(false);
 
-  const submitLogin = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setScreen("dashboard");
-    }, 450);
+  const filteredPrefixes = useMemo(() => {
+    if (!gender) {
+      return [];
+    }
+
+    return prefixes.filter((item) => item.gender_id === gender);
+  }, [gender, prefixes]);
+
+  const genderOptions = useMemo(() => genders.map((item) => ({ label: item.name, value: item.id })), [genders]);
+  const prefixOptions = useMemo(() => filteredPrefixes.map((item) => ({ label: item.name, value: item.id })), [filteredPrefixes]);
+
+  const isSessionExpiredError = (error: unknown) => {
+    if (error instanceof ApiError) {
+      if (error.status === 401 || error.status === 403) {
+        return true;
+      }
+
+      const normalized = `${error.code} ${error.message}`.toLowerCase();
+      return normalized.includes("token") || normalized.includes("unauthorized") || normalized.includes("expired");
+    }
+
+    if (error instanceof Error) {
+      const normalized = error.message.toLowerCase();
+      return (
+        normalized.includes("access-token-expired")
+        || normalized.includes("access-token-missing")
+        || normalized.includes("refresh-token")
+        || normalized.includes("token")
+        || normalized.includes("unauthorized")
+      );
+    }
+
+    return false;
   };
 
-  const submitRegister = () => {
+  const resetAuthFormState = useCallback(() => {
+    setUsername("");
+    setPassword("");
+    setPrefix("");
+    setGender("");
+    setFirstName("");
+    setLastName("");
+    setPhone("");
+    setConfirmPassword("");
+    setRemember(false);
+    setLoading(false);
+    setLoginMessage("");
+    setRegisterMessage("");
+  }, []);
+
+  const resetDashboardState = useCallback(() => {
+    setDashboardError("");
+    setDashboardWallets([]);
+    setDashboardRecentActivity([]);
+    setTotalNetWorth(0);
+    setDashboardLoading(false);
+  }, []);
+
+  const handleSecureLogout = useCallback(
+    async (message?: string) => {
+      await authApi.logout();
+      resetAuthFormState();
+      resetDashboardState();
+      if (message) {
+        setLoginMessage(message);
+      }
+      setScreen("login");
+    },
+    [resetAuthFormState, resetDashboardState]
+  );
+
+  const loadDashboardData = useCallback(async () => {
+    if (sessionExpiredModalVisible) {
+      return;
+    }
+
+    if (dashboardRequestInFlightRef.current) {
+      return;
+    }
+
+    dashboardRequestInFlightRef.current = true;
+    setDashboardLoading(true);
+    setDashboardError("");
+
+    try {
+      const [wallets, transactions] = await Promise.all([authApi.listMyWallets(), authApi.listMyTransactions()]);
+
+      const walletMap = new Map(wallets.map((wallet) => [wallet.id, wallet.name]));
+      const walletRows = wallets.map((wallet) => ({
+        id: wallet.id,
+        name: wallet.name,
+        amount: Number(wallet.balance || 0),
+      }));
+
+      const netWorth = walletRows.reduce((sum, wallet) => sum + wallet.amount, 0);
+
+      const recentRows = transactions
+        .slice()
+        .sort((a, b) => {
+          const aDate = new Date(a.transaction_date || a.created_at).getTime();
+          const bDate = new Date(b.transaction_date || b.created_at).getTime();
+          return bDate - aDate;
+        })
+        .slice(0, 5)
+        .map((item) => ({
+          id: item.id,
+          title: item.note?.trim() || item.type,
+          wallet: item.wallet_id ? walletMap.get(item.wallet_id) || "Unknown Wallet" : "Unknown Wallet",
+          amount: item.type === "expense" ? -Math.abs(Number(item.amount || 0)) : Math.abs(Number(item.amount || 0)),
+          date: new Date(item.transaction_date || item.created_at).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+          }),
+        }));
+
+      setDashboardWallets(walletRows);
+      setDashboardRecentActivity(recentRows);
+      setTotalNetWorth(netWorth);
+    } catch (error) {
+      if (isSessionExpiredError(error)) {
+        setSessionExpiredMessage(locale === "th" ? "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง" : "Session expired, please login again");
+        setSessionExpiredModalVisible(true);
+        return;
+      }
+
+      if (error instanceof ApiError) {
+        setDashboardError(error.message || "Failed to load dashboard");
+      } else if (error instanceof Error) {
+        setDashboardError(error.message);
+      } else {
+        setDashboardError("Failed to load dashboard");
+      }
+    } finally {
+      dashboardRequestInFlightRef.current = false;
+      setDashboardLoading(false);
+    }
+  }, [locale, sessionExpiredModalVisible]);
+
+  useEffect(() => {
+    const boot = async () => {
+      await authApi.initSession();
+
+      try {
+        await authApi.getMe();
+        setScreen("dashboard");
+        await loadDashboardData();
+      } catch {
+        setScreen("login");
+      } finally {
+        setBootLoading(false);
+      }
+    };
+
+    void boot();
+  }, []);
+
+  useEffect(() => {
+    const loadOptions = async () => {
+      setOptionsLoading(true);
+
+      try {
+        const [genderRes, prefixRes] = await Promise.all([authApi.listGenders(), authApi.listPrefixes()]);
+        setGenders(genderRes);
+        setPrefixes(prefixRes);
+      } catch (error) {
+        if (error instanceof ApiError) {
+          setRegisterMessage(error.message || "Failed to load options");
+          return;
+        }
+
+        setRegisterMessage("Failed to load options");
+      } finally {
+        setOptionsLoading(false);
+      }
+    };
+
+    void loadOptions();
+  }, []);
+
+  useEffect(() => {
+    if (screen !== "dashboard") {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      void loadDashboardData();
+    }, 60_000);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [screen, loadDashboardData]);
+
+  const submitLogin = async () => {
+    setLoginMessage("");
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      await authApi.loginMember({
+        username: username.trim(),
+        password,
+      });
+      await authApi.getMe();
+      await loadDashboardData();
       setScreen("dashboard");
-    }, 450);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setLoginMessage(error.message || "Login failed");
+      } else if (error instanceof Error) {
+        setLoginMessage(error.message);
+      } else {
+        setLoginMessage("Login failed");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (!fontsLoaded) {
+  const submitRegister = async () => {
+    setRegisterMessage("");
+
+    if (password !== confirmPassword) {
+      setRegisterMessage(locale === "th" ? "รหัสผ่านไม่ตรงกัน" : "Passwords do not match");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await authApi.registerMember({
+        gender_id: gender || null,
+        prefix_id: prefix || null,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        display_name: `${firstName} ${lastName}`.trim(),
+        phone: phone.trim(),
+        username: username.trim(),
+        password,
+      });
+
+      setLoginMessage(locale === "th" ? "สร้างบัญชีสำเร็จ" : "Account created successfully");
+      setScreen("login");
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setRegisterMessage(error.message || "Register failed");
+      } else if (error instanceof Error) {
+        setRegisterMessage(error.message);
+      } else {
+        setRegisterMessage("Register failed");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onGenderChange = (value: string) => {
+    setGender(value);
+    setPrefix("");
+  };
+
+  if (!fontsLoaded || bootLoading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.bgBase }}>
         <ActivityIndicator color={theme.colors.primary} />
@@ -65,36 +328,135 @@ export default function App() {
           password={password}
           remember={remember}
           loading={loading}
+          message={loginMessage}
           onUsernameChange={setUsername}
           onPasswordChange={setPassword}
           onRememberChange={setRemember}
-          onSubmit={submitLogin}
-          onGoRegister={() => setScreen("register")}
+          onSubmit={() => {
+            void submitLogin();
+          }}
+          onGoRegister={() => {
+            setRegisterMessage("");
+            setScreen("register");
+          }}
         />
       ) : screen === "register" ? (
         <RegisterScreen
           locale={locale}
+          genderOptions={genderOptions}
+          prefixOptions={prefixOptions}
+          optionsLoading={optionsLoading}
           firstName={firstName}
           lastName={lastName}
+          phone={phone}
           prefix={prefix}
           gender={gender}
           username={username}
           password={password}
           confirmPassword={confirmPassword}
           loading={loading}
+          message={registerMessage}
           onFirstNameChange={setFirstName}
           onLastNameChange={setLastName}
+          onPhoneChange={setPhone}
           onPrefixChange={setPrefix}
-          onGenderChange={setGender}
+          onGenderChange={onGenderChange}
           onUsernameChange={setUsername}
           onPasswordChange={setPassword}
           onConfirmPasswordChange={setConfirmPassword}
           onBackToLogin={() => setScreen("login")}
-          onSubmit={submitRegister}
+          onSubmit={() => {
+            void submitRegister();
+          }}
         />
       ) : (
-        <DashboardScreen onQuickEntry={() => {}} onLogout={() => setScreen("login")} />
+        <DashboardScreen
+          onQuickEntry={() => {
+            void loadDashboardData();
+          }}
+          onRefresh={() => {
+            void loadDashboardData();
+          }}
+          onLogout={() => {
+            void handleSecureLogout();
+          }}
+          loading={dashboardLoading}
+          error={dashboardError}
+          totalNetWorth={totalNetWorth}
+          wallets={dashboardWallets}
+          recentActivity={dashboardRecentActivity}
+        />
       )}
+      <Modal visible={sessionExpiredModalVisible} transparent animationType="fade" onRequestClose={() => {}}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(15, 23, 42, 0.35)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              borderRadius: 24,
+              borderWidth: 1,
+              borderColor: theme.colors.borderSoft,
+              backgroundColor: theme.colors.white,
+              padding: 24,
+            }}
+          >
+            <Text
+              style={{
+                color: theme.colors.textPrimary,
+                fontFamily: "Manrope_700Bold",
+                fontSize: 16,
+                marginBottom: 10,
+              }}
+            >
+              {locale === "th" ? "เซสชันหมดอายุ" : "Session Expired"}
+            </Text>
+            <Text
+              style={{
+                color: theme.colors.textMuted,
+                fontFamily: "Manrope_500Medium",
+                fontSize: 13,
+                lineHeight: 20,
+                marginBottom: 18,
+              }}
+            >
+              {sessionExpiredMessage || (locale === "th" ? "กรุณาเข้าสู่ระบบอีกครั้ง" : "Please login again")}
+            </Text>
+            <Pressable
+              onPress={() => {
+                setSessionExpiredModalVisible(false);
+                void handleSecureLogout(sessionExpiredMessage || (locale === "th" ? "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง" : "Session expired, please login again"));
+              }}
+              style={{
+                minHeight: 48,
+                borderRadius: 16,
+                backgroundColor: theme.colors.primary,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: theme.colors.white,
+                  fontFamily: "Manrope_700Bold",
+                  fontSize: 12,
+                  textTransform: "uppercase",
+                  letterSpacing: 2,
+                }}
+              >
+                OK
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
       <StatusBar style="dark" />
     </>
   );

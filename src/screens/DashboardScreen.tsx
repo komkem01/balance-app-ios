@@ -8,19 +8,13 @@ import { theme } from "../theme";
 type DashboardScreenProps = {
   onQuickEntry: () => void;
   onLogout: () => void;
+  onRefresh: () => void;
+  loading: boolean;
+  error?: string;
+  totalNetWorth: number;
+  wallets: Array<{ id: string; name: string; amount: number }>;
+  recentActivity: Array<{ id: string; title: string; wallet: string; amount: number; date: string }>;
 };
-
-const recentActivity = [
-  { id: "1", title: "Coffee Beans", wallet: "Daily Wallet", amount: -165, date: "Today" },
-  { id: "2", title: "Salary", wallet: "Main Account", amount: 28500, date: "03 Apr" },
-  { id: "3", title: "Fuel", wallet: "Daily Wallet", amount: -840, date: "02 Apr" },
-];
-
-const wallets = [
-  { id: "1", name: "Main Account", amount: 72880 },
-  { id: "2", name: "Daily Wallet", amount: 5140 },
-  { id: "3", name: "Savings Pod", amount: 200000 },
-];
 
 const formatCurrency = (value: number) => {
   const abs = Math.abs(value).toLocaleString("en-US", {
@@ -31,7 +25,16 @@ const formatCurrency = (value: number) => {
   return `${value < 0 ? "-" : ""}THB ${abs}`;
 };
 
-export function DashboardScreen({ onQuickEntry, onLogout }: DashboardScreenProps) {
+export function DashboardScreen({
+  onQuickEntry,
+  onLogout,
+  onRefresh,
+  loading,
+  error,
+  totalNetWorth,
+  wallets,
+  recentActivity,
+}: DashboardScreenProps) {
   return (
     <AppScreen>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -45,9 +48,14 @@ export function DashboardScreen({ onQuickEntry, onLogout }: DashboardScreenProps
 
         <AppCard style={styles.summaryCard}>
           <Text style={styles.label}>Total Net Worth</Text>
-          <Text style={styles.netWorth}>THB 278,020.00</Text>
+          <Text style={styles.netWorth}>{formatCurrency(totalNetWorth)}</Text>
           <View style={styles.quickRow}>
-            <AppButton label="Quick Entry" onPress={onQuickEntry} />
+            <View style={styles.summaryActions}>
+              <AppButton label="Quick Entry" onPress={onQuickEntry} />
+              <AppButton label="Refresh" onPress={onRefresh} variant="ghost" />
+            </View>
+            {loading ? <Text style={styles.hint}>Syncing dashboard data...</Text> : null}
+            {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
         </AppCard>
 
@@ -57,6 +65,7 @@ export function DashboardScreen({ onQuickEntry, onLogout }: DashboardScreenProps
             <Text style={styles.sectionAction}>View All Ledger</Text>
           </View>
           <View style={styles.stack}>
+            {recentActivity.length === 0 ? <Text style={styles.emptyText}>No transactions yet</Text> : null}
             {recentActivity.map((item) => {
               const income = item.amount > 0;
               return (
@@ -75,6 +84,7 @@ export function DashboardScreen({ onQuickEntry, onLogout }: DashboardScreenProps
         <AppCard>
           <Text style={styles.sectionTitle}>Wallet Snapshot</Text>
           <View style={styles.stack}>
+            {wallets.length === 0 ? <Text style={styles.emptyText}>No wallets found</Text> : null}
             {wallets.map((wallet) => (
               <View key={wallet.id} style={styles.row}>
                 <Text style={styles.rowTitle}>{wallet.name}</Text>
@@ -132,6 +142,21 @@ const styles = StyleSheet.create({
   quickRow: {
     marginTop: theme.spacing.sm,
   },
+  summaryActions: {
+    gap: theme.spacing.sm,
+  },
+  hint: {
+    color: theme.colors.textSubtle,
+    fontFamily: "Manrope_500Medium",
+    fontSize: 11,
+    marginTop: theme.spacing.sm,
+  },
+  error: {
+    color: theme.colors.rose,
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 11,
+    marginTop: theme.spacing.sm,
+  },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -154,6 +179,11 @@ const styles = StyleSheet.create({
   },
   stack: {
     gap: theme.spacing.md,
+  },
+  emptyText: {
+    color: theme.colors.textSubtle,
+    fontFamily: "Manrope_500Medium",
+    fontSize: 12,
   },
   row: {
     flexDirection: "row",

@@ -15,9 +15,10 @@ type AppSelectProps = {
   options: SelectOption[];
   onChange: (value: string) => void;
   invalid?: boolean;
+  disabled?: boolean;
 };
 
-export function AppSelect({ label, placeholder, value, options, onChange, invalid }: AppSelectProps) {
+export function AppSelect({ label, placeholder, value, options, onChange, invalid, disabled }: AppSelectProps) {
   const [open, setOpen] = useState(false);
 
   const selected = useMemo(() => options.find((option) => option.value === value), [options, value]);
@@ -25,7 +26,7 @@ export function AppSelect({ label, placeholder, value, options, onChange, invali
   return (
     <View style={styles.group}>
       <Text style={styles.label}>{label}</Text>
-      <Pressable style={[styles.trigger, invalid && styles.triggerInvalid]} onPress={() => setOpen(true)}>
+      <Pressable disabled={disabled} style={[styles.trigger, invalid && styles.triggerInvalid, disabled && styles.triggerDisabled]} onPress={() => setOpen(true)}>
         <Text style={[styles.triggerText, !selected && styles.placeholder]}>{selected?.label || placeholder}</Text>
         <Text style={styles.chevron}>▼</Text>
       </Pressable>
@@ -83,6 +84,10 @@ const styles = StyleSheet.create({
   },
   triggerInvalid: {
     borderColor: theme.colors.rose,
+  },
+  triggerDisabled: {
+    opacity: 0.5,
+    backgroundColor: theme.colors.bgSoft,
   },
   triggerText: {
     fontFamily: "Manrope_500Medium",

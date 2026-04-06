@@ -15,14 +15,20 @@ type RegisterScreenProps = {
   locale: Locale;
   prefix: string;
   gender: string;
+  genderOptions: Array<{ label: string; value: string }>;
+  prefixOptions: Array<{ label: string; value: string }>;
+  optionsLoading: boolean;
   firstName: string;
   lastName: string;
+  phone: string;
   username: string;
   password: string;
   confirmPassword: string;
   loading: boolean;
+  message?: string;
   onFirstNameChange: (value: string) => void;
   onLastNameChange: (value: string) => void;
+  onPhoneChange: (value: string) => void;
   onPrefixChange: (value: string) => void;
   onGenderChange: (value: string) => void;
   onUsernameChange: (value: string) => void;
@@ -40,8 +46,11 @@ const copy = {
     gender: "Gender",
     genderPlaceholder: "Select gender",
     selectionRequired: "Please select prefix and gender before creating your account",
+    selectGenderFirst: "Select gender first",
+    loadingOptions: "Loading gender and prefix list...",
     firstName: "First Name",
     lastName: "Last Name",
+    phone: "Phone",
     username: "Username",
     password: "Password",
     confirmPassword: "Confirm Password",
@@ -55,8 +64,11 @@ const copy = {
     gender: "เพศ",
     genderPlaceholder: "เลือกเพศ",
     selectionRequired: "กรุณาเลือกคำนำหน้าและเพศก่อนสร้างบัญชี",
+    selectGenderFirst: "กรุณาเลือกเพศก่อน",
+    loadingOptions: "กำลังโหลดรายการเพศและคำนำหน้า...",
     firstName: "ชื่อ",
     lastName: "นามสกุล",
+    phone: "เบอร์โทรศัพท์",
     username: "ชื่อผู้ใช้งาน",
     password: "รหัสผ่าน",
     confirmPassword: "ยืนยันรหัสผ่าน",
@@ -68,36 +80,6 @@ const copy = {
 export function RegisterScreen(props: RegisterScreenProps) {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const t = useMemo(() => copy[props.locale], [props.locale]);
-  const prefixOptions = useMemo(
-    () =>
-      props.locale === "th"
-        ? [
-            { label: "นาย", value: "mr" },
-            { label: "นาง", value: "mrs" },
-            { label: "นางสาว", value: "ms" },
-          ]
-        : [
-            { label: "Mr.", value: "mr" },
-            { label: "Mrs.", value: "mrs" },
-            { label: "Ms.", value: "ms" },
-          ],
-    [props.locale]
-  );
-  const genderOptions = useMemo(
-    () =>
-      props.locale === "th"
-        ? [
-            { label: "ชาย", value: "male" },
-            { label: "หญิง", value: "female" },
-            { label: "ไม่ระบุ", value: "unspecified" },
-          ]
-        : [
-            { label: "Male", value: "male" },
-            { label: "Female", value: "female" },
-            { label: "Prefer not to say", value: "unspecified" },
-          ],
-    [props.locale]
-  );
   const prefixMissing = !props.prefix;
   const genderMissing = !props.gender;
   const hasSelectionError = prefixMissing || genderMissing;
@@ -120,21 +102,25 @@ export function RegisterScreen(props: RegisterScreenProps) {
           </View>
 
           <View style={styles.form}>
-            <AppSelect
-              label={t.prefix}
-              placeholder={t.prefixPlaceholder}
-              value={props.prefix}
-              options={prefixOptions}
-              onChange={props.onPrefixChange}
-              invalid={submitAttempted && prefixMissing}
-            />
+            {props.message ? <Text style={styles.errorText}>{props.message}</Text> : null}
+            {props.optionsLoading ? <Text style={styles.hintText}>{t.loadingOptions}</Text> : null}
             <AppSelect
               label={t.gender}
               placeholder={t.genderPlaceholder}
               value={props.gender}
-              options={genderOptions}
+              options={props.genderOptions}
               onChange={props.onGenderChange}
               invalid={submitAttempted && genderMissing}
+              disabled={props.optionsLoading || props.genderOptions.length === 0}
+            />
+            <AppSelect
+              label={t.prefix}
+              placeholder={!props.gender ? t.selectGenderFirst : t.prefixPlaceholder}
+              value={props.prefix}
+              options={props.prefixOptions}
+              onChange={props.onPrefixChange}
+              invalid={submitAttempted && prefixMissing}
+              disabled={!props.gender || props.optionsLoading || props.prefixOptions.length === 0}
             />
             {submitAttempted && hasSelectionError ? <Text style={styles.errorText}>{t.selectionRequired}</Text> : null}
             <AppInput
@@ -148,6 +134,12 @@ export function RegisterScreen(props: RegisterScreenProps) {
               value={props.lastName}
               onChangeText={props.onLastNameChange}
               placeholder={t.lastName}
+            />
+            <AppInput
+              label={t.phone}
+              value={props.phone}
+              onChangeText={props.onPhoneChange}
+              placeholder={t.phone}
             />
             <AppInput
               label={t.username}
@@ -206,6 +198,12 @@ const styles = StyleSheet.create({
   errorText: {
     color: theme.colors.rose,
     fontFamily: "Manrope_600SemiBold",
+    fontSize: 11,
+    marginTop: -2,
+  },
+  hintText: {
+    color: theme.colors.textMuted,
+    fontFamily: "Manrope_500Medium",
     fontSize: 11,
     marginTop: -2,
   },

@@ -17,6 +17,7 @@ type LoginScreenProps = {
   password: string;
   remember: boolean;
   loading: boolean;
+  message?: string;
   onUsernameChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onRememberChange: (value: boolean) => void;
@@ -77,6 +78,7 @@ export function LoginScreen(props: LoginScreenProps) {
           </View>
 
           <View style={styles.form}>
+            {props.message ? <Text style={styles.message}>{props.message}</Text> : null}
             <AppInput
               label={t.username}
               value={props.username}
@@ -173,6 +175,11 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: theme.spacing.lg,
+  },
+  message: {
+    color: theme.colors.rose,
+    fontFamily: "Manrope_600SemiBold",
+    fontSize: 12,
   },
   rememberRow: {
     flexDirection: "row",
