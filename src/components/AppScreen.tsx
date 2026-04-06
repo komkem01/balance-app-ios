@@ -12,6 +12,7 @@ export function AppScreen({ children, padded = true }: AppScreenProps) {
   return (
     <View style={styles.root}>
       <LinearGradient
+        pointerEvents="none"
         colors={[theme.colors.bgBase, "#eef2ff", "#f8fafc"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -23,7 +24,9 @@ export function AppScreen({ children, padded = true }: AppScreenProps) {
         <View style={[styles.orb, styles.orbBottomRight]} />
       </View>
       <SafeAreaView style={styles.safeArea}>
-        <View style={[styles.content, padded && styles.padded]}>{children}</View>
+        <View style={[styles.content, padded && styles.padded]} pointerEvents="box-none">
+          {children}
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -36,9 +39,11 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    zIndex: 2,
   },
   content: {
     flex: 1,
+    zIndex: 2,
   },
   padded: {
     paddingHorizontal: theme.spacing.xl,
@@ -46,6 +51,7 @@ const styles = StyleSheet.create({
   },
   meshContainer: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
   },
   orb: {
     position: "absolute",

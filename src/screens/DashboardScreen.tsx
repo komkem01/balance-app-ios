@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "../components/AppButton";
 import { AppCard } from "../components/AppCard";
@@ -9,6 +9,7 @@ type DashboardScreenProps = {
   onQuickEntry: () => void;
   onLogout: () => void;
   onRefresh: () => void;
+  onViewAllLedger: () => void;
   loading: boolean;
   error?: string;
   totalNetWorth: number;
@@ -29,6 +30,7 @@ export function DashboardScreen({
   onQuickEntry,
   onLogout,
   onRefresh,
+  onViewAllLedger,
   loading,
   error,
   totalNetWorth,
@@ -43,7 +45,9 @@ export function DashboardScreen({
             <Text style={styles.path}>Dashboard</Text>
             <Text style={styles.title}>Balance Overview</Text>
           </View>
-          <AppButton label="Logout" onPress={onLogout} variant="ghost" />
+          <View style={styles.headerActions}>
+            <AppButton label="Logout" onPress={onLogout} variant="ghost" />
+          </View>
         </View>
 
         <AppCard style={styles.summaryCard}>
@@ -62,7 +66,9 @@ export function DashboardScreen({
         <AppCard>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <Text style={styles.sectionAction}>View All Ledger</Text>
+            <Pressable onPress={onViewAllLedger} hitSlop={8} style={styles.sectionActionButton}>
+              <Text style={styles.sectionAction}>Ledger</Text>
+            </Pressable>
           </View>
           <View style={styles.stack}>
             {recentActivity.length === 0 ? <Text style={styles.emptyText}>No transactions yet</Text> : null}
@@ -106,8 +112,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: theme.spacing.lg,
+  },
+  headerActions: {
+    gap: theme.spacing.sm,
   },
   path: {
     color: theme.colors.indigo,
@@ -173,9 +182,17 @@ const styles = StyleSheet.create({
   sectionAction: {
     color: theme.colors.indigo,
     fontFamily: "Manrope_700Bold",
-    fontSize: 10,
+    fontSize: 11,
     textTransform: "uppercase",
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
+  },
+  sectionActionButton: {
+    borderWidth: 1,
+    borderColor: "rgba(99, 102, 241, 0.25)",
+    backgroundColor: "rgba(99, 102, 241, 0.08)",
+    borderRadius: theme.radius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   stack: {
     gap: theme.spacing.md,

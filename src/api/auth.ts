@@ -332,8 +332,11 @@ export const authApi = {
     return res.data || [];
   },
 
-  async listMyTransactions() {
-    const res = await requestWithAuth<TransactionItem[]>("/balances/transactions?page=1&size=20", {
+  async listMyTransactions(params?: { page?: number; size?: number }) {
+    const page = params?.page || 1;
+    const size = params?.size || 20;
+
+    const res = await requestWithAuth<TransactionItem[]>(`/balances/transactions?page=${page}&size=${size}`, {
       method: "GET",
     });
 
