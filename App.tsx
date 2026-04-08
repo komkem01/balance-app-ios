@@ -2,17 +2,21 @@ import { Manrope_300Light, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bo
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { authApi, type GenderItem, type PrefixItem } from "./src/api/auth";
+import { authApi, type CategoryItem, type GenderItem, type MeResponse, type PrefixItem, type TransactionMonthlySummaryItem } from "./src/api/auth";
 import { ApiError } from "./src/api/client";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
 import { TransactionsScreen } from "./src/screens/TransactionsScreen";
+import { QuickEntryScreen } from "./src/screens/QuickEntryScreen";
+import { ProfileScreen } from "./src/screens/ProfileScreen";
+import { AppSidebar } from "./src/components/AppSidebar";
 import { theme } from "./src/theme";
 
 type Locale = "en" | "th";
-type Screen = "login" | "register" | "dashboard" | "transactions";
+type Screen = "login" | "register" | "dashboard" | "transactions" | "quick-entry" | "profile";
 const transferNotePrefix = "__transfer__|";
 
 type TransferNoteMeta = {
@@ -72,11 +76,13 @@ export default function App() {
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState("");
   const [dashboardWallets, setDashboardWallets] = useState<Array<{ id: string; name: string; amount: number }>>([]);
+  const [dashboardCategories, setDashboardCategories] = useState<CategoryItem[]>([]);
   const [dashboardRecentActivity, setDashboardRecentActivity] = useState<
-    Array<{ id: string; title: string; wallet: string; amount: number; date: string }>
+    Array<{ id: string; title: string; wallet: string; amount: number; date: string; rawDate?: string }>
   >([]);
+  const [dashboardMonthlySummary, setDashboardMonthlySummary] = useState<TransactionMonthlySummaryItem[]>([]);
   const [ledgerTransactions, setLedgerTransactions] = useState<
-    Array<{ id: string; title: string; wallet: string; amount: number; date: string }>
+    Array<{ id: string; title: string; wallet: string; amount: number; date: string; rawDate?: string }>
   >([]);
   const [totalNetWorth, setTotalNetWorth] = useState(0);
   const [sessionExpiredModalVisible, setSessionExpiredModalVisible] = useState(false);
@@ -84,7 +90,46 @@ export default function App() {
   const [languageDevModalVisible, setLanguageDevModalVisible] = useState(false);
   const [languageDevMessage, setLanguageDevMessage] = useState("");
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [profileInfo, setProfileInfo] = useState({
+    id: "",
+    firstName: "",
+    lastName: "",
+    displayName: "",
+    username: "",
+    phone: "",
+    profileImageURL: "",
+    lastLogin: "",
+  });
   const dashboardRequestInFlightRef = useRef(false);
+  const sidebarCurrentScreen: "dashboard" | "transactions" | "profile" | "quick-entry" =
+    screen === "transactions"
+      ? "transactions"
+      : screen === "profile"
+        ? "profile"
+        : screen === "quick-entry"
+          ? "quick-entry"
+          : "dashboard";
+
+  const mapProfileInfo = (me: MeResponse) => {
+    const fullName = `${me.first_name || ""} ${me.last_name || ""}`.trim();
+    return {
+      id: me.id || "",
+      firstName: me.first_name || "",
+      lastName: me.last_name || "",
+      displayName: me.display_name || fullName || "-",
+      username: me.account?.username || "-",
+      phone: me.phone || "-",
+      profileImageURL: me.profile_image_url || "",
+      lastLogin: me.last_login
+        ? new Date(me.last_login).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+        : "-",
+    };
+  };
 
   const filteredPrefixes = useMemo(() => {
     if (!gender) {
@@ -139,7 +184,9 @@ export default function App() {
   const resetDashboardState = useCallback(() => {
     setDashboardError("");
     setDashboardWallets([]);
+    setDashboardCategories([]);
     setDashboardRecentActivity([]);
+    setDashboardMonthlySummary([]);
     setLedgerTransactions([]);
     setTotalNetWorth(0);
     setDashboardLoading(false);
@@ -154,6 +201,7 @@ export default function App() {
       }
       resetAuthFormState();
       resetDashboardState();
+      setSidebarVisible(false);
       if (message) {
         setLoginMessage(message);
       }
@@ -181,7 +229,12 @@ export default function App() {
     setDashboardError("");
 
     try {
-      const [wallets, transactions] = await Promise.all([authApi.listMyWallets(), authApi.listMyTransactions({ page: 1, size: 200 })]);
+      const [wallets, categories, transactions, monthlySummary] = await Promise.all([
+        authApi.listMyWallets(),
+        authApi.listMyCategories(),
+        authApi.listMyTransactions({ page: 1, size: 200 }),
+        authApi.listMyTransactionMonthlySummary({ range: "1y" }),
+      ]);
 
       const walletMap = new Map(wallets.map((wallet) => [wallet.id, wallet.name]));
       const walletRows = wallets.map((wallet) => ({
@@ -216,14 +269,17 @@ export default function App() {
               day: "2-digit",
               month: "short",
             }),
+            rawDate: item.transaction_date || item.created_at,
           };
         });
 
       const recentRows = transactionRows.slice(0, 5);
 
       setDashboardWallets(walletRows);
+      setDashboardCategories(categories);
       setLedgerTransactions(transactionRows);
       setDashboardRecentActivity(recentRows);
+      setDashboardMonthlySummary(monthlySummary);
       setTotalNetWorth(netWorth);
     } catch (error) {
       if (isSessionExpiredError(error)) {
@@ -250,7 +306,8 @@ export default function App() {
       await authApi.initSession();
 
       try {
-        await authApi.getMe();
+        const me = await authApi.getMe();
+        setProfileInfo(mapProfileInfo(me));
         setScreen("dashboard");
         await loadDashboardData();
       } catch {
@@ -309,7 +366,8 @@ export default function App() {
         username: username.trim(),
         password,
       });
-      await authApi.getMe();
+      const me = await authApi.getMe();
+      setProfileInfo(mapProfileInfo(me));
       await loadDashboardData();
       setScreen("dashboard");
     } catch (error) {
@@ -385,7 +443,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <SafeAreaProvider>
       {screen === "login" ? (
         <LoginScreen
           locale={locale}
@@ -437,33 +495,82 @@ export default function App() {
         />
       ) : screen === "dashboard" ? (
         <DashboardScreen
+          onOpenSidebar={() => setSidebarVisible(true)}
           onQuickEntry={() => {
-            void loadDashboardData();
+            setScreen("quick-entry");
           }}
           onRefresh={() => {
             void loadDashboardData();
           }}
           onViewAllLedger={() => setScreen("transactions")}
-          onLogout={() => {
-            setLogoutConfirmVisible(true);
-          }}
           loading={dashboardLoading}
           error={dashboardError}
           totalNetWorth={totalNetWorth}
           wallets={dashboardWallets}
           recentActivity={dashboardRecentActivity}
+          monthlySummary={dashboardMonthlySummary}
         />
-      ) : (
+      ) : screen === "transactions" ? (
         <TransactionsScreen
           transactions={ledgerTransactions}
           loading={dashboardLoading}
           error={dashboardError}
+          totalNetWorth={totalNetWorth}
+          onOpenSidebar={() => setSidebarVisible(true)}
+          onQuickEntry={() => {
+            setScreen("quick-entry");
+          }}
           onRefresh={() => {
             void loadDashboardData();
+          }}
+        />
+      ) : screen === "profile" ? (
+        <ProfileScreen
+          profile={profileInfo}
+          totalNetWorth={totalNetWorth}
+          onOpenSidebar={() => setSidebarVisible(true)}
+          onQuickEntry={() => {
+            setScreen("quick-entry");
+          }}
+          onProfileUpdated={(nextMe) => {
+            setProfileInfo(mapProfileInfo(nextMe));
+          }}
+        />
+      ) : (
+        <QuickEntryScreen
+          totalNetWorth={totalNetWorth}
+          wallets={dashboardWallets}
+          categories={dashboardCategories}
+          onOpenSidebar={() => setSidebarVisible(true)}
+          onSubmitted={async () => {
+            await loadDashboardData();
           }}
           onBack={() => setScreen("dashboard")}
         />
       )}
+      <AppSidebar
+        visible={sidebarVisible}
+        currentScreen={sidebarCurrentScreen}
+        userDisplayName={profileInfo.displayName || profileInfo.username || "Member"}
+        onClose={() => setSidebarVisible(false)}
+        onNavigate={(next) => {
+          setScreen(next);
+          setSidebarVisible(false);
+        }}
+        onComingSoon={(label) => {
+          setSidebarVisible(false);
+          setLanguageDevMessage(
+            locale === "th"
+              ? `${label} อยู่ระหว่างการพัฒนา`
+              : `${label} is currently under development.`
+          );
+          setLanguageDevModalVisible(true);
+        }}
+        onLogout={() => {
+          setSidebarVisible(false);
+          setLogoutConfirmVisible(true);
+        }}
+      />
       {sessionExpiredModalVisible ? <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
         <View
           style={{
@@ -699,6 +806,6 @@ export default function App() {
         </View>
       </Modal> : null}
       <StatusBar style="dark" />
-    </>
+    </SafeAreaProvider>
   );
 }

@@ -49,6 +49,19 @@ type PrefixItem = {
   is_active: boolean;
 };
 
+type CategoryType = "income" | "expense";
+
+type CategoryItem = {
+  id: string;
+  member_id: string | null;
+  name: string;
+  type: CategoryType;
+  icon_name: string;
+  color_code: string;
+  created_at: string;
+  updated_at: string;
+};
+
 type MeAccount = {
   id: string;
   username: string;
@@ -69,6 +82,20 @@ type MeResponse = {
   created_at: string;
   updated_at: string;
   last_login: string | null;
+};
+
+type UpdateMemberRequest = {
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
+  phone?: string;
+  profile_image_url?: string;
+};
+
+type ChangeMyPasswordRequest = {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
 };
 
 type Session = {
@@ -102,6 +129,45 @@ type TransactionItem = {
   image_url: string;
   created_at: string;
   updated_at: string;
+};
+
+type TransactionMonthlySummaryItem = {
+  month: string;
+  income_total: number;
+  expense_total: number;
+  transaction_count: number;
+};
+
+type TransactionMonthlySummaryParams = {
+  walletID?: string;
+  categoryID?: string;
+  startDate?: string;
+  endDate?: string;
+  range?: "1d" | "1w" | "1m" | "1y" | "all";
+};
+
+type CreateTransactionRequest = {
+  wallet_id: string;
+  category_id?: string;
+  amount: number;
+  type: "income" | "expense";
+  transaction_date?: string;
+  note?: string;
+  image_url?: string;
+};
+
+type CreateTransferTransactionRequest = {
+  from_wallet_id: string;
+  to_wallet_id: string;
+  category_id?: string;
+  amount: number;
+  transaction_date?: string;
+  note?: string;
+};
+
+type UploadSlipResponse = {
+  image_url: string;
+  display_image_url: string;
 };
 
 let session: Session | null = null;
@@ -324,6 +390,14 @@ export const authApi = {
     return res.data;
   },
 
+  async listMyCategories() {
+    const res = await requestWithAuth<CategoryItem[]>("/balances/categories?page=1&size=200", {
+      method: "GET",
+    });
+
+    return res.data || [];
+  },
+
   async listMyWallets() {
     const res = await requestWithAuth<WalletItem[]>("/balances/wallets?page=1&size=100", {
       method: "GET",
@@ -342,6 +416,110 @@ export const authApi = {
 
     return res.data || [];
   },
+
+  async listMyTransactionMonthlySummary(params?: TransactionMonthlySummaryParams) {
+    const query = new URLSearchParams();
+
+    if (params?.walletID) {
+      query.set("wallet_id", params.walletID);
+    }
+
+    if (params?.categoryID) {
+      query.set("category_id", params.categoryID);
+    }
+
+    if (params?.startDate) {
+      query.set("start_date", params.startDate);
+    }
+
+    if (params?.endDate) {
+      query.set("end_date", params.endDate);
+    }
+
+    if (params?.range) {
+      query.set("range", params.range);
+    }
+
+    const queryString = query.toString();
+    const path = queryString
+      ? `/balances/transactions/monthly-summary?${queryString}`
+      : "/balances/transactions/monthly-summary";
+
+    const res = await requestWithAuth<TransactionMonthlySummaryItem[]>(path, {
+      method: "GET",
+    });
+
+    return res.data || [];
+  },
+
+  async createMyTransaction(body: CreateTransactionRequest) {
+    const res = await requestWithAuth<TransactionItem>("/balances/transactions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    return res.data;
+  },
+
+  async createMyTransferTransaction(body: CreateTransferTransactionRequest) {
+    const res = await requestWithAuth<unknown>("/balances/transactions/transfer", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    return res.data;
+  },
+
+  async uploadMyTransactionSlip(walletID: string, file: { uri: string; fileName?: string; mimeType?: string }) {
+    const formData = new FormData();
+    formData.append("wallet_id", walletID);
+    formData.append("image", {
+      uri: file.uri,
+      name: file.fileName || `slip-${Date.now()}.jpg`,
+      type: file.mimeType || "image/jpeg",
+    } as unknown as Blob);
+
+    const res = await requestWithAuth<UploadSlipResponse>("/balances/storage/slips", {
+      method: "POST",
+      body: formData,
+    });
+
+    return res.data;
+  },
+
+  async updateMe(memberID: string, body: UpdateMemberRequest) {
+    const res = await requestWithAuth<MeResponse>(`/members/${memberID}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+
+    return res.data;
+  },
+
+  async uploadMyProfileImage(file: { uri: string; fileName?: string; mimeType?: string }) {
+    const formData = new FormData();
+    formData.append("image", {
+      uri: file.uri,
+      name: file.fileName || `profile-${Date.now()}.jpg`,
+      type: file.mimeType || "image/jpeg",
+    } as unknown as Blob);
+
+    const res = await requestWithAuth<MeResponse>("/me/profile-image", {
+      method: "POST",
+      body: formData,
+    });
+
+    return res.data;
+  },
+
+  async changeMyPassword(body: ChangeMyPasswordRequest) {
+    const res = await requestWithAuth<unknown>("/me/change-password", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    return res.data;
+  },
 };
 
-export type { GenderItem, PrefixItem, WalletItem, TransactionItem, MeResponse };
+export type { GenderItem, PrefixItem, CategoryItem, WalletItem, TransactionItem, TransactionMonthlySummaryItem, MeResponse };

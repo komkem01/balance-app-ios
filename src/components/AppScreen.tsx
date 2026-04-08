@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { PropsWithChildren } from "react";
-import { SafeAreaView, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { theme } from "../theme";
 
@@ -23,7 +24,7 @@ export function AppScreen({ children, padded = true }: AppScreenProps) {
         <View style={[styles.orb, styles.orbTopRight]} />
         <View style={[styles.orb, styles.orbBottomRight]} />
       </View>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <View style={[styles.content, padded && styles.padded]} pointerEvents="box-none">
           {children}
         </View>
